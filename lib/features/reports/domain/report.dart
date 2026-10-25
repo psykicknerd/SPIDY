@@ -24,6 +24,8 @@ enum IncidentCategory {
 
 enum DeliveryStatus { localOnly, pending, sent, failed }
 
+enum ReportOrigin { localDemo, serverSubmitted }
+
 class IncidentReport {
   IncidentReport({
     String? id,
@@ -36,6 +38,7 @@ class IncidentReport {
     List<String> photoPaths = const [],
     required this.createdAt,
     this.status = DeliveryStatus.localOnly,
+    this.origin = ReportOrigin.localDemo,
     this.remoteId,
     this.failureMessage,
   }) : id = id ?? _newReportId(),
@@ -52,6 +55,7 @@ class IncidentReport {
   String get locationText => address;
   final DateTime createdAt;
   final DeliveryStatus status;
+  final ReportOrigin origin;
   final String? remoteId;
   final String? failureMessage;
 
@@ -65,6 +69,7 @@ class IncidentReport {
     photoPath: photoPath,
     createdAt: createdAt,
     status: status,
+    origin: origin,
     remoteId: remoteId,
     failureMessage: failureMessage,
   );

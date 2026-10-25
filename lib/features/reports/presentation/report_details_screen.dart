@@ -123,6 +123,17 @@ class ReportDetailsScreen extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodyLarge
                           ?.copyWith(height: 1.5),
                     ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Report ID',
+                      style: Theme.of(context).textTheme.labelLarge
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    SelectableText(
+                      report.id,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ),
               ),
@@ -214,7 +225,14 @@ class ReportDetailsScreen extends StatelessWidget {
                               errorBuilder: (_, _, _) => Container(
                                 width: 110,
                                 color: colors.surfaceContainerHighest,
-                                child: const Icon(Icons.broken_image_outlined),
+                                child: const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.broken_image_outlined),
+                                    SizedBox(height: 4),
+                                    Text('Photo unavailable'),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -243,7 +261,11 @@ class ReportDetailsScreen extends StatelessWidget {
                           Text(
                             isSample
                                 ? 'Demonstration data'
-                                : 'No backend is connected',
+                                : switch (report.origin) {
+                                    ReportOrigin.localDemo => 'Local demo record · saved on this device',
+                                    ReportOrigin.serverSubmitted =>
+                                      'Submitted to the backend',
+                                  },
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: colors.onSurfaceVariant),
                           ),
@@ -258,6 +280,38 @@ class ReportDetailsScreen extends StatelessWidget {
                 ),
               ),
             ),
+            if (report.remoteId != null || report.failureMessage != null) ...[
+              const SizedBox(height: 11),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (report.remoteId != null) ...[
+                        Text(
+                          'Server report ID',
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 4),
+                        SelectableText(report.remoteId!),
+                      ],
+                      if (report.failureMessage != null) ...[
+                        if (report.remoteId != null) const SizedBox(height: 10),
+                        Text(
+                          'Submission issue',
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(report.failureMessage!),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

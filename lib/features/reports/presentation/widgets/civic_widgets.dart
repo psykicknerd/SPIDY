@@ -104,7 +104,7 @@ class DeliveryBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, icon, color, fill) = switch (status) {
       DeliveryStatus.localOnly => (
-        'On this device',
+        compact ? 'Demo · local only' : 'Local demo · not submitted',
         Icons.phone_android_rounded,
         const Color(0xFF79520A),
         const Color(0xFFFFF3D6),
@@ -116,7 +116,7 @@ class DeliveryBadge extends StatelessWidget {
         const Color(0xFFFFF0D9),
       ),
       DeliveryStatus.sent => (
-        'Submitted',
+        'Sent to server',
         Icons.check_circle_outline_rounded,
         const Color(0xFF27735B),
         const Color(0xFFE3F4EC),
