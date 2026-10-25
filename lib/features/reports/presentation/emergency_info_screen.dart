@@ -124,6 +124,10 @@ class EmergencyInfoScreen extends StatelessWidget {
                 'Community safety',
                 'Concerns that may need local attention',
               ),
+              IncidentCategory.other => (
+                'Other incident',
+                'Another incident type that needs attention',
+              ),
             };
             return Card(
               margin: const EdgeInsets.only(bottom: 9),

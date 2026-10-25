@@ -27,7 +27,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   final _locationController = TextEditingController();
   final _picker = ImagePicker();
   IncidentCategory? _category;
-  List<XFile> _photos = [];
+  XFile? _photo;
   double? _latitude;
   double? _longitude;
   bool _gettingLocation = false;
@@ -92,12 +92,12 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
 
   Future<void> _pickPhotos() async {
     try {
-      final picked = await _picker.pickMultiImage(
-        limit: 4,
+      final picked = await _picker.pickImage(
+        source: ImageSource.gallery,
         imageQuality: 85,
         maxWidth: 1800,
       );
-      if (mounted && picked.isNotEmpty) setState(() => _photos = picked);
+      if (mounted && picked != null) setState(() => _photo = picked);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -110,6 +110,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   }
 
   Future<void> _submit() async {
+    if (_saving) return;
     final valid = _formKey.currentState!.validate();
     setState(
       () => _categoryError = _category == null
@@ -121,13 +122,13 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
     setState(() => _saving = true);
     try {
       await AppStateScope.of(context).addReport(
-        Report(
+        IncidentReport(
           category: _category!,
           description: _descriptionController.text.trim(),
-          locationText: _locationController.text.trim(),
+          address: _locationController.text.trim(),
           latitude: _latitude,
           longitude: _longitude,
-          photoPaths: _photos.map((photo) => photo.path).toList(),
+          photoPath: _photo?.path,
           createdAt: DateTime.now(),
         ),
       );
@@ -138,7 +139,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
       setState(() {
         _category = null;
         _categoryError = null;
-        _photos = [];
+        _photo = null;
         _latitude = null;
         _longitude = null;
       });
@@ -200,9 +201,12 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                 const SizedBox(height: 24),
                 _SectionTitle(number: '01', title: 'What happened?'),
                 const SizedBox(height: 12),
-                Text(
-                  'Choose a category',
-                  style: Theme.of(context).textTheme.titleSmall,
+                Semantics(
+                  header: true,
+                  child: Text(
+                    'Choose a category',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 LayoutBuilder(
@@ -215,53 +219,58 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                         final selected = _category == category;
                         return SizedBox(
                           width: itemWidth,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(18),
-                            onTap: () => setState(() {
-                              _category = category;
-                              _categoryError = null;
-                            }),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 160),
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? colors.primaryContainer
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
+                          child: Semantics(
+                            button: true,
+                            selected: selected,
+                            label: '${category.label} incident category',
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: () => setState(() {
+                                _category = category;
+                                _categoryError = null;
+                              }),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 160),
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
                                   color: selected
-                                      ? colors.primary
-                                      : const Color(0xFFE1E7E5),
-                                  width: selected ? 1.5 : 1,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    _categoryIcon(category),
+                                      ? colors.primaryContainer
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
                                     color: selected
                                         ? colors.primary
-                                        : colors.secondary,
+                                        : const Color(0xFFE1E7E5),
+                                    width: selected ? 1.5 : 1,
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    category.label,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      _categoryIcon(category),
+                                      color: selected
+                                          ? colors.primary
+                                          : colors.secondary,
                                     ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    category.description,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall,
-                                  ),
-                                ],
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      category.label,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      category.description,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -283,6 +292,8 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                   minLines: 4,
                   maxLines: 6,
                   maxLength: 1000,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
                     labelText: 'Incident description',
@@ -295,8 +306,11 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                     if (text.isEmpty) {
                       return 'Enter a description of the incident.';
                     }
-                    if (text.length < 10) {
-                      return 'Please add a little more detail (at least 10 characters).';
+                    if (text.length < 20) {
+                      return 'Please add a little more detail (at least 20 characters).';
+                    }
+                    if (text.length > 1000) {
+                      return 'Keep the description under 1,000 characters.';
                     }
                     return null;
                   },
@@ -306,6 +320,8 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _locationController,
+                  keyboardType: TextInputType.streetAddress,
+                  textInputAction: TextInputAction.done,
                   textCapitalization: TextCapitalization.sentences,
                   onChanged: (_) {
                     if (_latitude != null) {
@@ -320,9 +336,16 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                     hintText: 'Street, landmark, area or GPS coordinates',
                     prefixIcon: Icon(Icons.location_on_outlined),
                   ),
-                  validator: (value) => (value?.trim().isEmpty ?? true)
-                      ? 'Enter a location or capture GPS coordinates.'
-                      : null,
+                  validator: (value) {
+                    final address = value?.trim() ?? '';
+                    if (address.isEmpty) {
+                      return 'Enter a location or capture GPS coordinates.';
+                    }
+                    if (address.length < 5) {
+                      return 'Enter a more complete location (at least 5 characters).';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 10),
                 Align(
@@ -347,7 +370,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                 _SectionTitle(number: '03', title: 'Add photos'),
                 const SizedBox(height: 6),
                 Text(
-                  'Optional · Up to 4 photos',
+                  'Optional · Attach one photo',
                   style: Theme.of(context).textTheme.bodyMedium
                       ?.copyWith(color: colors.onSurfaceVariant),
                 ),
@@ -356,14 +379,12 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    ..._photos.asMap().entries.map(
-                      (entry) => _PhotoPreview(
-                        photo: entry.value,
-                        onRemove: () =>
-                            setState(() => _photos.removeAt(entry.key)),
+                    if (_photo case final photo?)
+                      _PhotoPreview(
+                        photo: photo,
+                        onRemove: () => setState(() => _photo = null),
                       ),
-                    ),
-                    if (_photos.length < 4)
+                    if (_photo == null)
                       OutlinedButton.icon(
                         onPressed: _pickPhotos,
                         icon: const Icon(Icons.add_photo_alternate_outlined),
@@ -469,4 +490,5 @@ IconData _categoryIcon(IncidentCategory category) => switch (category) {
   IncidentCategory.accident => Icons.car_crash_outlined,
   IncidentCategory.medical => Icons.medical_services_outlined,
   IncidentCategory.suspiciousActivity => Icons.visibility_outlined,
+  IncidentCategory.other => Icons.report_problem_outlined,
 };

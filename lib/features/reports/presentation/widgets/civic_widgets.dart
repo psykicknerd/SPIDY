@@ -11,6 +11,7 @@ IconData incidentIcon(IncidentCategory category) => switch (category) {
   IncidentCategory.accident => Icons.car_crash_rounded,
   IncidentCategory.medical => Icons.medical_services_rounded,
   IncidentCategory.suspiciousActivity => Icons.visibility_rounded,
+  IncidentCategory.other => Icons.report_problem_rounded,
 };
 
 Color incidentTint(BuildContext context, IncidentCategory category) =>
@@ -21,6 +22,7 @@ Color incidentTint(BuildContext context, IncidentCategory category) =>
       IncidentCategory.suspiciousActivity => Theme.of(
         context,
       ).colorScheme.primary,
+      IncidentCategory.other => Theme.of(context).colorScheme.secondary,
     };
 
 class PageWidth extends StatelessWidget {

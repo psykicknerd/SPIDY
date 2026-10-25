@@ -18,10 +18,11 @@ class LocalReportRepository implements ReportRepository {
     final databasePath = await getDatabasesPath();
     final database = await openDatabase(
       p.join(databasePath, 'spidy_reports.db'),
-      version: 1,
+      version: 2,
       onCreate: (db, version) => db.execute('''
         CREATE TABLE reports (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
+          report_id TEXT NOT NULL UNIQUE,
           category TEXT NOT NULL,
           description TEXT NOT NULL,
           location_text TEXT NOT NULL,
@@ -34,6 +35,17 @@ class LocalReportRepository implements ReportRepository {
           failure_message TEXT
         )
       '''),
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE reports ADD COLUMN report_id TEXT');
+          await db.execute(
+            "UPDATE reports SET report_id = 'legacy-' || id WHERE report_id IS NULL",
+          );
+          await db.execute(
+            'CREATE UNIQUE INDEX reports_report_id_unique ON reports(report_id)',
+          );
+        }
+      },
     );
     final documents = await getApplicationDocumentsDirectory();
     final photos = Directory(p.join(documents.path, 'report_photos'));
@@ -45,7 +57,12 @@ class LocalReportRepository implements ReportRepository {
     final saved = <String>[];
     for (var index = 0; index < paths.length; index++) {
       final source = File(paths[index]);
-      if (!await source.exists()) continue;
+      if (!await source.exists()) {
+        throw FileSystemException(
+          'The selected photo is no longer available.',
+          source.path,
+        );
+      }
       final extension = p.extension(source.path);
       final destination = p.join(
         _photoDirectory.path,
@@ -63,14 +80,16 @@ class LocalReportRepository implements ReportRepository {
     final saved = Report(
       category: report.category,
       description: report.description,
-      locationText: report.locationText,
+      address: report.address,
       latitude: report.latitude,
       longitude: report.longitude,
-      photoPaths: photoPaths,
+      photoPath: photoPaths.isEmpty ? null : photoPaths.first,
       createdAt: report.createdAt,
       status: DeliveryStatus.localOnly,
+      id: report.id,
     );
-    final id = await _database.insert('reports', {
+    await _database.insert('reports', {
+      'report_id': saved.id,
       'category': saved.category.name,
       'description': saved.description,
       'location_text': saved.locationText,
@@ -82,7 +101,7 @@ class LocalReportRepository implements ReportRepository {
       'remote_id': null,
       'failure_message': null,
     });
-    return saved.withId(id);
+    return saved;
   }
 
   @override
@@ -93,10 +112,10 @@ class LocalReportRepository implements ReportRepository {
         row['photo_paths']! as String,
       ) as List<dynamic>).cast<String>();
       return Report(
-        id: row['id']! as int,
+        id: (row['report_id'] as String?) ?? 'legacy-${row['id']}',
         category: IncidentCategory.values.byName(row['category']! as String),
         description: row['description']! as String,
-        locationText: row['location_text']! as String,
+        address: row['location_text']! as String,
         latitude: row['latitude'] as double?,
         longitude: row['longitude'] as double?,
         photoPaths: photos,
