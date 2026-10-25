@@ -8,9 +8,14 @@ import '../domain/report.dart';
 import 'app_state.dart';
 
 class ReportFormScreen extends StatefulWidget {
-  const ReportFormScreen({super.key, required this.onSubmitted});
+  const ReportFormScreen({
+    super.key,
+    required this.onSubmitted,
+    this.initialCategory,
+  });
 
   final VoidCallback onSubmitted;
+  final IncidentCategory? initialCategory;
 
   @override
   State<ReportFormScreen> createState() => _ReportFormScreenState();
@@ -28,6 +33,12 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   bool _gettingLocation = false;
   bool _saving = false;
   String? _categoryError;
+
+  @override
+  void initState() {
+    super.initState();
+    _category = widget.initialCategory;
+  }
 
   @override
   void dispose() {
@@ -153,224 +164,244 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Form(
-      key: _formKey,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 30),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: colors.primaryContainer.withValues(alpha: .55),
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Report an incident'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: Form(
+        key: _formKey,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
               children: [
-                Icon(Icons.shield_outlined),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Create a local incident record. SPIDY is not connected to emergency services.',
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer.withValues(alpha: .55),
+                    borderRadius: BorderRadius.circular(22),
                   ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.shield_outlined),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Create a local incident record. CivicShield is not connected to emergency services.',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _SectionTitle(number: '01', title: 'What happened?'),
+                const SizedBox(height: 12),
+                Text(
+                  'Choose a category',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 10),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final itemWidth = (constraints.maxWidth - 10) / 2;
+                    return Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: IncidentCategory.values.map((category) {
+                        final selected = _category == category;
+                        return SizedBox(
+                          width: itemWidth,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: () => setState(() {
+                              _category = category;
+                              _categoryError = null;
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? colors.primaryContainer
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: selected
+                                      ? colors.primary
+                                      : const Color(0xFFE1E7E5),
+                                  width: selected ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    _categoryIcon(category),
+                                    color: selected
+                                        ? colors.primary
+                                        : colors.secondary,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    category.label,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    category.description,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+                if (_categoryError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _categoryError!,
+                    style: TextStyle(color: colors.error, fontSize: 12),
+                  ),
+                ],
+                const SizedBox(height: 22),
+                TextFormField(
+                  controller: _descriptionController,
+                  minLines: 4,
+                  maxLines: 6,
+                  maxLength: 1000,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Incident description',
+                    hintText:
+                        'Describe what happened and any details that may help…',
+                    alignLabelWithHint: true,
+                  ),
+                  validator: (value) {
+                    final text = value?.trim() ?? '';
+                    if (text.isEmpty) {
+                      return 'Enter a description of the incident.';
+                    }
+                    if (text.length < 10) {
+                      return 'Please add a little more detail (at least 10 characters).';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 26),
+                _SectionTitle(number: '02', title: 'Where is it?'),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _locationController,
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (_) {
+                    if (_latitude != null) {
+                      setState(() {
+                        _latitude = null;
+                        _longitude = null;
+                      });
+                    }
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Location',
+                    hintText: 'Street, landmark, area or GPS coordinates',
+                    prefixIcon: Icon(Icons.location_on_outlined),
+                  ),
+                  validator: (value) => (value?.trim().isEmpty ?? true)
+                      ? 'Enter a location or capture GPS coordinates.'
+                      : null,
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _gettingLocation ? null : _captureLocation,
+                    icon: _gettingLocation
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.my_location_outlined),
+                    label: Text(
+                      _gettingLocation
+                          ? 'Getting location…'
+                          : 'Use my current location',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 26),
+                _SectionTitle(number: '03', title: 'Add photos'),
+                const SizedBox(height: 6),
+                Text(
+                  'Optional · Up to 4 photos',
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: colors.onSurfaceVariant),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    ..._photos.asMap().entries.map(
+                      (entry) => _PhotoPreview(
+                        photo: entry.value,
+                        onRemove: () =>
+                            setState(() => _photos.removeAt(entry.key)),
+                      ),
+                    ),
+                    if (_photos.length < 4)
+                      OutlinedButton.icon(
+                        onPressed: _pickPhotos,
+                        icon: const Icon(Icons.add_photo_alternate_outlined),
+                        label: const Text('Choose photos'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                FilledButton.icon(
+                  onPressed: _saving ? null : _submit,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: Text(
+                    _saving ? 'Saving report…' : 'Save report on this device',
+                  ),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(54),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'This report stays on your device and is not sent anywhere.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: colors.onSurfaceVariant),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          _SectionTitle(number: '01', title: 'What happened?'),
-          const SizedBox(height: 12),
-          Text(
-            'Choose a category',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: 10),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = (constraints.maxWidth - 10) / 2;
-              return Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: IncidentCategory.values.map((category) {
-                  final selected = _category == category;
-                  return SizedBox(
-                    width: itemWidth,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () => setState(() {
-                        _category = category;
-                        _categoryError = null;
-                      }),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? colors.primaryContainer
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: selected
-                                ? colors.primary
-                                : const Color(0xFFE1E7E5),
-                            width: selected ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              _categoryIcon(category),
-                              color: selected
-                                  ? colors.primary
-                                  : colors.secondary,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              category.label,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              category.description,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              );
-            },
-          ),
-          if (_categoryError != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _categoryError!,
-              style: TextStyle(color: colors.error, fontSize: 12),
-            ),
-          ],
-          const SizedBox(height: 22),
-          TextFormField(
-            controller: _descriptionController,
-            minLines: 4,
-            maxLines: 6,
-            maxLength: 1000,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Incident description',
-              hintText: 'Describe what happened and any details that may help…',
-              alignLabelWithHint: true,
-            ),
-            validator: (value) {
-              final text = value?.trim() ?? '';
-              if (text.isEmpty) return 'Enter a description of the incident.';
-              if (text.length < 10)
-                return 'Please add a little more detail (at least 10 characters).';
-              return null;
-            },
-          ),
-          const SizedBox(height: 26),
-          _SectionTitle(number: '02', title: 'Where is it?'),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _locationController,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: (_) {
-              if (_latitude != null)
-                setState(() {
-                  _latitude = null;
-                  _longitude = null;
-                });
-            },
-            decoration: const InputDecoration(
-              labelText: 'Location',
-              hintText: 'Street, landmark, area or GPS coordinates',
-              prefixIcon: Icon(Icons.location_on_outlined),
-            ),
-            validator: (value) => (value?.trim().isEmpty ?? true)
-                ? 'Enter a location or capture GPS coordinates.'
-                : null,
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: _gettingLocation ? null : _captureLocation,
-              icon: _gettingLocation
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.my_location_outlined),
-              label: Text(
-                _gettingLocation
-                    ? 'Getting location…'
-                    : 'Use my current location',
-              ),
-            ),
-          ),
-          const SizedBox(height: 26),
-          _SectionTitle(number: '03', title: 'Add photos'),
-          const SizedBox(height: 6),
-          Text(
-            'Optional · Up to 4 photos',
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: colors.onSurfaceVariant),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              ..._photos.asMap().entries.map(
-                (entry) => _PhotoPreview(
-                  photo: entry.value,
-                  onRemove: () => setState(() => _photos.removeAt(entry.key)),
-                ),
-              ),
-              if (_photos.length < 4)
-                OutlinedButton.icon(
-                  onPressed: _pickPhotos,
-                  icon: const Icon(Icons.add_photo_alternate_outlined),
-                  label: const Text('Choose photos'),
-                ),
-            ],
-          ),
-          const SizedBox(height: 28),
-          FilledButton.icon(
-            onPressed: _saving ? null : _submit,
-            icon: _saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.save_outlined),
-            label: Text(
-              _saving ? 'Saving report…' : 'Save report on this device',
-            ),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(54),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'This report stays on your device and is not sent anywhere.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall
-                ?.copyWith(color: colors.onSurfaceVariant),
-          ),
-        ],
+        ),
       ),
     );
   }

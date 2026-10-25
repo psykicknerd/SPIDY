@@ -13,7 +13,8 @@ final demoReports = <Report>[
   Report(
     id: -2,
     category: IncidentCategory.medical,
-    description: 'A person may need assistance near the south entrance. Sample record.',
+    description:
+        'A person may need assistance near the south entrance. Sample record.',
     locationText: 'Riverside Park · South Gate',
     photoPaths: const [],
     createdAt: DateTime.now().subtract(const Duration(days: 1, hours: 3)),
@@ -21,7 +22,8 @@ final demoReports = <Report>[
   Report(
     id: -3,
     category: IncidentCategory.suspiciousActivity,
-    description: 'Example of a submitted incident description for the history preview.',
+    description:
+        'Example of a submitted incident description for the history preview.',
     locationText: 'Civic Plaza · East Walkway',
     photoPaths: const [],
     createdAt: DateTime.now().subtract(const Duration(days: 3)),

@@ -1,205 +1,192 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../domain/report.dart';
 import 'app_state.dart';
+import 'report_details_screen.dart';
+import 'widgets/civic_widgets.dart';
 
-class HistoryScreen extends StatelessWidget {
-  const HistoryScreen({super.key});
+class HistoryScreen extends StatefulWidget {
+  const HistoryScreen({super.key, required this.onReport});
+
+  final VoidCallback onReport;
+
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends State<HistoryScreen> {
+  final _searchController = TextEditingController();
+  IncidentCategory? _category;
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    if (state.loading) return const Center(child: CircularProgressIndicator());
-    if (state.loadError != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 44),
-              const SizedBox(height: 12),
-              Text(state.loadError!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: state.loadReports,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Try again'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    if (state.reports.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.assignment_outlined,
-                size: 52,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No reports yet',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Reports you save on this device will appear here.',
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: state.reports.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) =>
-          _ReportCard(report: state.reports[index]),
-    );
-  }
-}
+    final filtered = state.reports.where((report) {
+      final categoryMatches = _category == null || report.category == _category;
+      final queryMatches =
+          _query.isEmpty ||
+          report.description.toLowerCase().contains(_query) ||
+          report.locationText.toLowerCase().contains(_query) ||
+          report.category.label.toLowerCase().contains(_query);
+      return categoryMatches && queryMatches;
+    }).toList();
 
-class _ReportCard extends StatelessWidget {
-  const _ReportCard({required this.report});
-  final Report report;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return PageWidth(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'My reports',
+            style: Theme.of(context).textTheme.headlineMedium
+                ?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -.6),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Review incident records saved on this device.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 19),
+          TextField(
+            controller: _searchController,
+            onChanged: (value) =>
+                setState(() => _query = value.trim().toLowerCase()),
+            decoration: InputDecoration(
+              hintText: 'Search reports',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _query = '');
+                      },
+                      icon: const Icon(Icons.close_rounded),
+                      tooltip: 'Clear search',
+                    ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
               children: [
-                CircleAvatar(
-                  backgroundColor: colors.primaryContainer,
-                  foregroundColor: colors.primary,
-                  child: Icon(_categoryIcon(report.category)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        report.category.label,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      Text(
-                        _dateLabel(report.createdAt),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: const Text('All'),
+                    selected: _category == null,
+                    onSelected: (_) => setState(() => _category = null),
                   ),
                 ),
-                const _LocalOnlyPill(),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              report.description,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: 17,
-                  color: colors.secondary,
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    report.locationText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            if (report.photoPaths.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 74,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: report.photoPaths.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, i) => ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      File(report.photoPaths[i]),
-                      width: 74,
-                      height: 74,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const SizedBox(
-                        width: 74,
-                        child: Icon(Icons.broken_image_outlined),
+                ...IncidentCategory.values.map(
+                  (category) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(category.label),
+                      selected: _category == category,
+                      onSelected: (_) => setState(
+                        () =>
+                            _category = _category == category ? null : category,
                       ),
                     ),
                   ),
                 ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (state.loading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (state.loadError != null)
+            Expanded(
+              child: Center(
+                child: EmptyStateCard(
+                  icon: Icons.error_outline_rounded,
+                  title: 'Could not load reports',
+                  message: state.loadError!,
+                  action: OutlinedButton.icon(
+                    onPressed: state.loadReports,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Try again'),
+                  ),
+                ),
               ),
-            ],
+            )
+          else if (filtered.isEmpty)
+            Expanded(
+              child: Center(
+                child: EmptyStateCard(
+                  icon: state.reports.isEmpty
+                      ? Icons.assignment_outlined
+                      : Icons.search_off_rounded,
+                  title: state.reports.isEmpty
+                      ? 'No reports saved yet'
+                      : 'No matching reports',
+                  message: state.reports.isEmpty
+                      ? 'Reports you save with CivicShield will appear here. Example cards on Home are sample previews.'
+                      : 'Try another search or category filter.',
+                  action: state.reports.isEmpty
+                      ? FilledButton.icon(
+                          onPressed: widget.onReport,
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Create a report'),
+                        )
+                      : TextButton(
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _query = '';
+                              _category = null;
+                            });
+                          },
+                          child: const Text('Clear filters'),
+                        ),
+                ),
+              ),
+            )
+          else ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${filtered.length} ${filtered.length == 1 ? 'report' : 'reports'} · saved locally',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.only(bottom: 16),
+                itemCount: filtered.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 9),
+                itemBuilder: (context, index) {
+                  final report = filtered[index];
+                  return IncidentReportCard(
+                    report: report,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ReportDetailsScreen(report: report),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
 }
-
-class _LocalOnlyPill extends StatelessWidget {
-  const _LocalOnlyPill();
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: const Color(0xFFFFF0D5),
-      borderRadius: BorderRadius.circular(50),
-    ),
-    child: const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      child: Text(
-        'LOCAL ONLY',
-        style: TextStyle(
-          color: Color(0xFF805400),
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          letterSpacing: .4,
-        ),
-      ),
-    ),
-  );
-}
-
-String _dateLabel(DateTime date) {
-  final local = date.toLocal();
-  final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
-  final minute = local.minute.toString().padLeft(2, '0');
-  final period = local.hour < 12 ? 'AM' : 'PM';
-  return '${local.day}/${local.month}/${local.year} · $hour:$minute $period';
-}
-
-IconData _categoryIcon(IncidentCategory category) => switch (category) {
-  IncidentCategory.fire => Icons.local_fire_department_outlined,
-  IncidentCategory.accident => Icons.car_crash_outlined,
-  IncidentCategory.medical => Icons.medical_services_outlined,
-  IncidentCategory.suspiciousActivity => Icons.visibility_outlined,
-};

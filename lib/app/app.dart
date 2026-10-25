@@ -74,12 +74,14 @@ class _CivicShieldAppState extends State<CivicShieldApp> {
           navigationBarTheme: NavigationBarThemeData(
             backgroundColor: Colors.white,
             indicatorColor: colorScheme.primaryContainer,
-            labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
-              fontSize: 12,
-              fontWeight: states.contains(WidgetState.selected)
-                  ? FontWeight.w700
-                  : FontWeight.w500,
-            )),
+            labelTextStyle: WidgetStateProperty.resolveWith(
+              (states) => TextStyle(
+                fontSize: 12,
+                fontWeight: states.contains(WidgetState.selected)
+                    ? FontWeight.w700
+                    : FontWeight.w500,
+              ),
+            ),
           ),
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
@@ -107,7 +109,9 @@ class _CivicShieldAppState extends State<CivicShieldApp> {
           ),
           snackBarTheme: SnackBarThemeData(
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
           ),
         ),
         home: const HomeScreen(),
