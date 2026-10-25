@@ -134,7 +134,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       ? 'No reports saved yet'
                       : 'No matching reports',
                   message: state.reports.isEmpty
-                      ? 'Reports you save with CivicShield will appear here. Example cards on Home are sample previews.'
+                      ? 'Reports you save with SPIDY will appear here. Example cards on Home are sample previews.'
                       : 'Try another search or category filter.',
                   action: state.reports.isEmpty
                       ? FilledButton.icon(

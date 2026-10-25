@@ -55,7 +55,7 @@ class EmergencyInfoScreen extends StatelessWidget {
                       ),
                       SizedBox(height: 5),
                       Text(
-                        'Contact your local emergency service directly. CivicShield is a project prototype and does not notify responders.',
+                        'Contact your local emergency service directly. SPIDY is a project prototype and does not notify responders.',
                         style: TextStyle(color: Color(0xFF7A271A), height: 1.4),
                       ),
                     ],

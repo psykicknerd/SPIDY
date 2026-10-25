@@ -6,7 +6,7 @@
     <!-- Gallery and camera attachments are optional; devices without a camera remain supported. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
-        android:label="CivicShield"
+        android:label="SPIDY"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

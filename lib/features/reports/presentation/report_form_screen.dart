@@ -306,7 +306,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                       SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Create a local incident record. CivicShield is not connected to emergency services.',
+                          'Create a local incident record. SPIDY is not connected to emergency services.',
                         ),
                       ),
                     ],

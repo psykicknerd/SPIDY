@@ -1,6 +1,6 @@
-# CivicShield
+# SPIDY
 
-CivicShield is an Android-first Flutter prototype for citizen incident reporting. Report records and photos are stored locally on the device. There is no backend connection, and reports are not sent to emergency services.
+SPIDY is an Android-first Flutter application for citizen incident reporting. Report records and photos are stored locally on the device. No backend contract is currently included in this repository, so reports are not sent to a server or emergency services.
 
 ## Run on Android
 

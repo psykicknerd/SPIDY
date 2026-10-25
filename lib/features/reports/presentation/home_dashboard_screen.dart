@@ -56,7 +56,7 @@ class HomeDashboardScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'CivicShield',
+                      'SPIDY',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                         letterSpacing: -.4,
@@ -175,7 +175,7 @@ class HomeDashboardScreen extends StatelessWidget {
                 SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    'Reports are saved on this device. CivicShield is not connected to emergency services.',
+                    'Reports are saved on this device. SPIDY is not connected to emergency services.',
                     style: TextStyle(
                       color: Color(0xFF71350F),
                       fontSize: 12,

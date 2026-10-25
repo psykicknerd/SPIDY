@@ -4,16 +4,16 @@ import '../features/reports/data/local_report_repository.dart';
 import '../features/reports/presentation/app_state.dart';
 import '../features/reports/presentation/home_screen.dart';
 
-class CivicShieldApp extends StatefulWidget {
-  const CivicShieldApp({super.key, required this.repository});
+class SpidyApp extends StatefulWidget {
+  const SpidyApp({super.key, required this.repository});
 
   final LocalReportRepository repository;
 
   @override
-  State<CivicShieldApp> createState() => _CivicShieldAppState();
+  State<SpidyApp> createState() => _SpidyAppState();
 }
 
-class _CivicShieldAppState extends State<CivicShieldApp> {
+class _SpidyAppState extends State<SpidyApp> {
   late final AppState state = AppState(widget.repository)..loadReports();
 
   @override
@@ -59,7 +59,7 @@ class _CivicShieldAppState extends State<CivicShieldApp> {
     return AppStateScope(
       state: state,
       child: MaterialApp(
-        title: 'CivicShield',
+        title: 'SPIDY',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
