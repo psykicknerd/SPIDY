@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Foreground location is requested only after the user taps the GPS button. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <!-- Gallery and camera attachments are optional; devices without a camera remain supported. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
         android:label="CivicShield"
         android:name="${applicationName}"

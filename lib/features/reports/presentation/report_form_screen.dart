@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -33,6 +35,8 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   bool _gettingLocation = false;
   bool _saving = false;
   String? _categoryError;
+  String? _locationMessage;
+  bool _locationMessageIsError = false;
 
   @override
   void initState() {
@@ -51,61 +55,158 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
     setState(() => _gettingLocation = true);
     try {
       final enabled = await Geolocator.isLocationServiceEnabled();
-      if (!enabled) throw Exception('Turn on location services and try again.');
+      if (!enabled) {
+        _showLocationMessage(
+          'Location services are off. Turn them on or enter an address manually.',
+          isError: true,
+        );
+        return;
+      }
 
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied) {
-        throw Exception(
-          'Location permission was denied. You can enter a location manually.',
+        _showLocationMessage(
+          'Location permission was denied. You can enter an address manually.',
+          isError: true,
         );
+        return;
       }
       if (permission == LocationPermission.deniedForever) {
-        throw Exception(
-          'Location permission is blocked. Enable it in app settings or enter a location manually.',
+        _showLocationMessage(
+          'Location permission is blocked. Enable it in app settings or enter an address manually.',
+          isError: true,
         );
+        return;
       }
 
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
+        locationSettings: LocationSettings(
           accuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 20),
         ),
       );
+      if (!position.latitude.isFinite ||
+          !position.longitude.isFinite ||
+          position.latitude < -90 ||
+          position.latitude > 90 ||
+          position.longitude < -180 ||
+          position.longitude > 180) {
+        _showLocationMessage(
+          'A usable position was not available. Try again or enter an address manually.',
+          isError: true,
+        );
+        return;
+      }
       if (!mounted) return;
       setState(() {
         _latitude = position.latitude;
         _longitude = position.longitude;
         _locationController.text =
-            'GPS coordinates: ${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
+            'GPS: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+        _locationMessage = 'GPS location captured';
+        _locationMessageIsError = false;
       });
-    } catch (error) {
-      if (!mounted) return;
-      final message = error.toString().replaceFirst('Exception: ', '');
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+    } on TimeoutException {
+      _showLocationMessage(
+        'Location timed out. Try again or enter an address manually.',
+        isError: true,
+      );
+    } on LocationServiceDisabledException {
+      _showLocationMessage(
+        'Location services are off. Turn them on or enter an address manually.',
+        isError: true,
+      );
+    } on PermissionDeniedException {
+      _showLocationMessage(
+        'Location permission was denied. You can enter an address manually.',
+        isError: true,
+      );
+    } on PositionUpdateException {
+      _showLocationMessage(
+        'Your position is unavailable right now. Try again or enter an address manually.',
+        isError: true,
+      );
+    } catch (_) {
+      _showLocationMessage(
+        'Could not get your location. Try again or enter an address manually.',
+        isError: true,
+      );
     } finally {
       if (mounted) setState(() => _gettingLocation = false);
     }
   }
 
-  Future<void> _pickPhotos() async {
+  void _showLocationMessage(String message, {required bool isError}) {
+    if (!mounted) return;
+    setState(() {
+      _locationMessage = message;
+      _locationMessageIsError = isError;
+    });
+  }
+
+  Future<void> _choosePhotoSource() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
     try {
       final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         imageQuality: 85,
         maxWidth: 1800,
       );
-      if (mounted && picked != null) setState(() => _photo = picked);
-    } catch (_) {
-      if (mounted) {
+      if (picked == null || !mounted) return; // User cancelled the picker.
+      if (!await File(picked.path).exists()) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Could not open photos. Please try again.'),
+            content: Text(
+              'The selected photo is no longer available. Choose another photo.',
+            ),
           ),
         );
+        return;
       }
+      if (mounted) setState(() => _photo = picked);
+    } on PlatformException catch (error) {
+      if (!mounted) return;
+      final message = source == ImageSource.camera
+          ? 'Could not open the camera (${error.code}). Choose a gallery photo instead.'
+          : 'Could not open the photo gallery. Please try again.';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    } on FileSystemException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The selected photo could not be read.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not attach a photo. Please retry.'),
+        ),
+      );
     }
   }
 
@@ -119,9 +220,22 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
     );
     if (!valid || _category == null) return;
 
+    final appState = AppStateScope.of(context);
     setState(() => _saving = true);
     try {
-      await AppStateScope.of(context).addReport(
+      if (_photo != null && !await File(_photo!.path).exists()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'The attached photo is no longer available. Remove it or choose another.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      await appState.addReport(
         IncidentReport(
           category: _category!,
           description: _descriptionController.text.trim(),
@@ -328,6 +442,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                       setState(() {
                         _latitude = null;
                         _longitude = null;
+                        _locationMessage = null;
                       });
                     }
                   },
@@ -362,10 +477,50 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                     label: Text(
                       _gettingLocation
                           ? 'Getting location…'
-                          : 'Use my current location',
+                          : _latitude == null
+                          ? 'Use my current location'
+                          : 'Update GPS location',
                     ),
                   ),
                 ),
+                if (_latitude != null && _longitude != null) ...[
+                  const SizedBox(height: 8),
+                  Semantics(
+                    label:
+                        'Captured coordinates, latitude ${_latitude!.toStringAsFixed(6)}, longitude ${_longitude!.toStringAsFixed(6)}',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.my_location, size: 17),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: SelectableText(
+                            'Lat ${_latitude!.toStringAsFixed(6)}  ·  Lon ${_longitude!.toStringAsFixed(6)}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _gettingLocation ? null : _captureLocation,
+                          icon: const Icon(Icons.refresh, size: 17),
+                          label: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (_locationMessage != null) ...[
+                  const SizedBox(height: 6),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _locationMessage!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: _locationMessageIsError
+                            ? colors.error
+                            : colors.primary,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 26),
                 _SectionTitle(number: '03', title: 'Add photos'),
                 const SizedBox(height: 6),
@@ -384,12 +539,17 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                         photo: photo,
                         onRemove: () => setState(() => _photo = null),
                       ),
-                    if (_photo == null)
-                      OutlinedButton.icon(
-                        onPressed: _pickPhotos,
-                        icon: const Icon(Icons.add_photo_alternate_outlined),
-                        label: const Text('Choose photos'),
+                    OutlinedButton.icon(
+                      onPressed: _choosePhotoSource,
+                      icon: Icon(
+                        _photo == null
+                            ? Icons.add_photo_alternate_outlined
+                            : Icons.edit_outlined,
                       ),
+                      label: Text(
+                        _photo == null ? 'Add a photo' : 'Replace photo',
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 28),
@@ -469,6 +629,13 @@ class _PhotoPreview extends StatelessWidget {
           width: 78,
           height: 78,
           fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            width: 78,
+            height: 78,
+            alignment: Alignment.center,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Icon(Icons.broken_image_outlined),
+          ),
         ),
       ),
       Positioned(
