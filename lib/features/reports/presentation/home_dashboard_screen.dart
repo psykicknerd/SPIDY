@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../emergency_contacts/data/emergency_contact_config.dart';
 import '../data/demo_report_data.dart';
 import '../domain/report.dart';
 import 'report_details_screen.dart';
@@ -347,58 +348,47 @@ class _ContactPreviewCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _ContactPreviewRow(
-              icon: Icons.local_police_outlined,
-              title: 'Police / public safety',
+            Text(
+              'Region: $verifiedEmergencyContactRegion',
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(color: colors.onSurfaceVariant),
             ),
-            Divider(height: 20, color: colors.outlineVariant),
-            const _ContactPreviewRow(
-              icon: Icons.local_fire_department_outlined,
-              title: 'Fire & rescue',
-            ),
-            Divider(height: 20, color: colors.outlineVariant),
-            const _ContactPreviewRow(
-              icon: Icons.medical_services_outlined,
-              title: 'Medical assistance',
-            ),
-            const SizedBox(height: 9),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Verified local numbers have not been configured.',
-                style: Theme.of(context).textTheme.bodySmall
-                    ?.copyWith(color: colors.onSurfaceVariant),
-              ),
-            ),
+            const SizedBox(height: 8),
+            if (verifiedEmergencyContacts.isEmpty)
+              Text(
+                'Verified local emergency numbers have not been configured.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              )
+            else
+              ...verifiedEmergencyContacts.indexed.expand((entry) {
+                final (index, contact) = entry;
+                return [
+                  if (index > 0)
+                    Divider(height: 18, color: colors.outlineVariant),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.health_and_safety_outlined,
+                        color: colors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          contact.label,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      Text(contact.phoneNumber),
+                    ],
+                  ),
+                ];
+              }),
           ],
         ),
       ),
     );
   }
-}
-
-class _ContactPreviewRow extends StatelessWidget {
-  const _ContactPreviewRow({required this.icon, required this.title});
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
-      const SizedBox(width: 10),
-      Expanded(
-        child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      ),
-      const Text(
-        'Not set',
-        style: TextStyle(
-          color: Color(0xFF8A4B16),
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    ],
-  );
 }

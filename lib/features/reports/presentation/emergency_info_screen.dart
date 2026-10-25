@@ -1,11 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../emergency_contacts/data/emergency_contact_config.dart';
-import '../domain/report.dart';
+import '../../emergency_contacts/domain/emergency_contact.dart';
 import 'widgets/civic_widgets.dart';
 
 class EmergencyInfoScreen extends StatelessWidget {
   const EmergencyInfoScreen({super.key});
+
+  Future<void> _openDialer(
+    BuildContext context,
+    EmergencyContact contact,
+  ) async {
+    final uri = Uri(scheme: 'tel', path: contact.phoneNumber);
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!context.mounted) return;
+      if (!launched) {
+        _showMessage(context, 'The device could not open its phone dialer.');
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      _showMessage(context, 'Could not open the phone dialer.');
+    }
+  }
+
+  void _showMessage(BuildContext context, String message) {
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,13 +41,13 @@ class EmergencyInfoScreen extends StatelessWidget {
       child: ListView(
         children: [
           Text(
-            'Emergency info',
+            'Emergency information',
             style: Theme.of(context).textTheme.headlineMedium
                 ?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -.6),
           ),
           const SizedBox(height: 5),
           Text(
-            'Important guidance and configured local contacts.',
+            'Verified emergency services for the configured region.',
             style: Theme.of(context).textTheme.bodyMedium
                 ?.copyWith(color: colors.onSurfaceVariant),
           ),
@@ -29,56 +55,60 @@ class EmergencyInfoScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEE9E4),
+              color: colors.errorContainer,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFF9C8BD)),
+              border: Border.all(color: colors.error.withValues(alpha: .25)),
             ),
-            child: const Row(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.emergency_rounded,
-                  color: Color(0xFFB42318),
-                  size: 23,
-                ),
-                SizedBox(width: 12),
+                Icon(Icons.emergency_rounded, color: colors.error, size: 23),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Immediate danger?',
-                        style: TextStyle(
-                          color: Color(0xFF7A271A),
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 5),
-                      Text(
-                        'Contact your local emergency service directly. SPIDY is a project prototype and does not notify responders.',
-                        style: TextStyle(color: Color(0xFF7A271A), height: 1.4),
-                      ),
-                    ],
+                  child: Text(
+                    'SPIDY is a college project and is not monitored by emergency responders. Do not rely on this app to request help. Contact your local emergency service directly.',
+                    style: TextStyle(
+                      color: colors.onErrorContainer,
+                      height: 1.4,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 25),
-          const SectionHeading(title: 'Verified local contacts'),
-          const SizedBox(height: 7),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Emergency services',
+                  style: Theme.of(context).textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              Flexible(
+                child: Text(
+                  'Region: $verifiedEmergencyContactRegion',
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: colors.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           if (verifiedEmergencyContacts.isEmpty)
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(17),
+                padding: const EdgeInsets.all(18),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(Icons.fact_check_outlined, color: colors.primary),
-                    const SizedBox(width: 11),
+                    const SizedBox(width: 12),
                     const Expanded(
                       child: Text(
-                        'Emergency numbers are not configured. Add only contact information verified for your project’s target region.',
+                        'No verified emergency phone numbers are configured for a target region yet. Call actions will appear here after approved local contacts are added.',
                       ),
                     ),
                   ],
@@ -87,106 +117,93 @@ class EmergencyInfoScreen extends StatelessWidget {
             )
           else
             ...verifiedEmergencyContacts.map(
-              (contact) => Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: colors.primaryContainer,
-                    foregroundColor: colors.primary,
-                    child: const Icon(Icons.call_outlined),
-                  ),
-                  title: Text(
-                    contact.label,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: Text('${contact.phoneNumber}\n${contact.source}'),
-                  isThreeLine: true,
-                ),
+              (contact) => _EmergencyContactCard(
+                contact: contact,
+                onCall: () => _openDialer(context, contact),
               ),
             ),
-          const SizedBox(height: 23),
-          const SectionHeading(title: 'Service directory'),
-          const SizedBox(height: 7),
-          ...IncidentCategory.values.map((category) {
-            final (label, description) = switch (category) {
-              IncidentCategory.fire => (
-                'Fire & rescue',
-                'Fire, smoke, or hazardous conditions',
-              ),
-              IncidentCategory.accident => (
-                'Police / public safety',
-                'Road incidents and immediate safety concerns',
-              ),
-              IncidentCategory.medical => (
-                'Medical assistance',
-                'Urgent health or injury assistance',
-              ),
-              IncidentCategory.suspiciousActivity => (
-                'Community safety',
-                'Concerns that may need local attention',
-              ),
-              IncidentCategory.other => (
-                'Other incident',
-                'Another incident type that needs attention',
-              ),
-            };
-            return Card(
-              margin: const EdgeInsets.only(bottom: 9),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 15,
-                  vertical: 5,
-                ),
-                leading: Container(
-                  width: 43,
-                  height: 43,
-                  decoration: BoxDecoration(
-                    color: incidentTint(
-                      context,
-                      category,
-                    ).withValues(alpha: .1),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    incidentIcon(category),
-                    color: incidentTint(context, category),
-                  ),
-                ),
-                title: Text(
-                  label,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                subtitle: Text(description),
-                trailing: const Text(
-                  'Not set',
-                  style: TextStyle(
-                    color: Color(0xFF8A4B16),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            );
-          }),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(17),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.lock_outline_rounded, color: colors.secondary),
+                  Icon(Icons.info_outline_rounded, color: colors.secondary),
                   const SizedBox(width: 11),
                   const Expanded(
                     child: Text(
-                      'Your reports are stored locally on this device. They are not sent to emergency services or a remote server.',
+                      'Tapping Call only opens the device dialer with the selected number. SPIDY does not place calls automatically.',
                     ),
                   ),
                 ],
               ),
             ),
           ),
+          const SizedBox(height: 10),
+          Text(
+            'Incident reports are stored on this device and are not sent to responders.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: colors.onSurfaceVariant),
+          ),
         ],
       ),
     );
   }
+}
+
+class _EmergencyContactCard extends StatelessWidget {
+  const _EmergencyContactCard({required this.contact, required this.onCall});
+
+  final EmergencyContact contact;
+  final VoidCallback onCall;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: const EdgeInsets.only(bottom: 10),
+    child: Padding(
+      padding: const EdgeInsets.all(15),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            foregroundColor: Theme.of(context).colorScheme.primary,
+            child: const Icon(Icons.health_and_safety_outlined),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  contact.label,
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 3),
+                SelectableText(
+                  contact.phoneNumber,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${contact.region} · Verified: ${contact.source}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
+            onPressed: onCall,
+            icon: const Icon(Icons.call_outlined),
+            label: const Text('Call'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
